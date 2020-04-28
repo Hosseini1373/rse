@@ -78,6 +78,8 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 	/**
 	 * Numerical abstract domain to use for analysis: COnvex polyhedra
 	 */
+	//added field
+	public static String resourceArrayName = "PrinterArray";
 	public final Manager man = new Polka(true);
 
 	public final Environment env;
@@ -168,6 +170,92 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 		// this method is never called, we are using the other merge instead
 		throw new UnsupportedOperationException();
 	}
+	
+	
+	//added method for handling if statement
+	private void handleIf(AbstractBinopExpr eqExpr, Abstract1 in, NumericalStateWrapper ow,
+			NumericalStateWrapper ow_branchout) throws ApronException {
+
+		Value leftOp = eqExpr.getOp1();
+		Value rightOp = eqExpr.getOp2();
+
+		Texpr1Node leftNode = null;
+
+		if (leftOp instanceof IntConstant) {
+			leftNode = new Texpr1CstNode(new MpqScalar(
+					((IntConstant) leftOp).value));
+		} else if (leftOp instanceof JimpleLocal) {
+			if (leftOp.getType().toString().equals(NumericalAnalysis.resourceArrayName)) {
+				ow.set(new Abstract1(man, in));
+				ow_branchout.set(new Abstract1(man, in));
+				return;
+			}
+			leftNode = new Texpr1VarNode(((JimpleLocal) leftOp).getName());
+		} else {
+			unhandled("unexpected leftOp in eqExpr: " , leftOp.getClass(),true);
+		}
+
+		Texpr1Node rightNode = null;
+
+		if (rightOp instanceof IntConstant) {
+			rightNode = new Texpr1CstNode(new MpqScalar(
+					((IntConstant) rightOp).value));
+		} else if (rightOp instanceof JimpleLocal) {
+			if (rightOp.getType().toString().equals(NumericalAnalysis.resourceArrayName)) {
+				ow.set(new Abstract1(man, in));
+				ow_branchout.set(new Abstract1(man, in));
+				return;
+			}
+			rightNode = new Texpr1VarNode(((JimpleLocal) rightOp).getName());
+		} else {
+			unhandled("unexpected rightOp in eqExpr: " , rightOp.getClass(),true);
+		}
+
+		Texpr1Node lmrExpr = new Texpr1BinNode(Texpr1BinNode.OP_SUB, leftNode,
+				rightNode);
+		Texpr1Node rmlExpr = new Texpr1BinNode(Texpr1BinNode.OP_SUB, rightNode,
+				leftNode);
+
+		// Constraints we add to the abstract element are of the following form:
+		// - leftNode - rightNode (cmp_kind) 0, e.g., lmrExpr >= 0
+		// - rightNode - leftNode (cmp_kind) 0, e.g., rmlExpr == 0
+		Tcons1 branchCons = null, fallCons = null;
+
+		// TODO: Handle required conditional expressions
+		// @andrinadenzler 2016-05-29 20:16 implemented except for imprecision
+		// in cases like (n != 0): (n != 0) is treated as (n in [-oo,+oo])
+		//  and provides no constraint on n at all
+		if (eqExpr instanceof JEqExpr) {
+			branchCons = new Tcons1(env, Tcons1.EQ, lmrExpr);
+			fallCons = new Tcons1(env, Tcons1.DISEQ, lmrExpr);
+		} else if (eqExpr instanceof JNeExpr) {
+			branchCons = new Tcons1(env, Tcons1.DISEQ, lmrExpr);
+			fallCons = new Tcons1(env, Tcons1.EQ, lmrExpr);
+		} else if (eqExpr instanceof JGeExpr) {
+			branchCons = new Tcons1(env, Tcons1.SUPEQ, lmrExpr);
+			fallCons = new Tcons1(env, Tcons1.SUP, rmlExpr);
+		} else if (eqExpr instanceof JGtExpr) {
+			branchCons = new Tcons1(env, Tcons1.SUP, lmrExpr);
+			fallCons = new Tcons1(env, Tcons1.SUPEQ, rmlExpr);
+		} else if (eqExpr instanceof JLeExpr) {
+			branchCons = new Tcons1(env, Tcons1.SUPEQ, rmlExpr);
+			fallCons = new Tcons1(env, Tcons1.SUP, lmrExpr);
+		} else if (eqExpr instanceof JLtExpr) {
+			branchCons = new Tcons1(env, Tcons1.SUP, rmlExpr);
+			fallCons = new Tcons1(env, Tcons1.SUPEQ, lmrExpr);
+		} else {
+			unhandled("unexpected eqExpr: " , eqExpr.getClass(),true);
+		}
+
+		ow.set(in.meetCopy(man, fallCons));
+		ow_branchout.set(in.meetCopy(man, branchCons));
+
+		NumericalStateWrapper state = new NumericalStateWrapper(man,in);
+//TODO: make the logging work 
+//		logger.debug("Bin_Op1: " + getInterval(state, leftOp));
+//		logger.debug("Bin_Op2: " + getInterval(state, rightOp));
+//		logger.debug("Bin_Res: " + eqExpr.getClass() + ": " + branchCons);
+	}
 
 	@Override
 	protected void flowThrough(NumericalStateWrapper inWrapper, Unit op, List<NumericalStateWrapper> fallOutWrappers,
@@ -223,8 +311,27 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
 			} else if (s instanceof JIfStmt) {
 				// handle if
+				
+				IfStmt ifs = (JIfStmt) s;
+				Value condition = ifs.getCondition();
 
-				// FILL THIS OUT
+				if (condition instanceof JEqExpr
+						|| condition instanceof JNeExpr
+						|| condition instanceof JGeExpr
+						|| condition instanceof JLeExpr
+						|| condition instanceof JLtExpr
+						|| condition instanceof JGtExpr) {
+					AbstractBinopExpr eqExpr = (AbstractBinopExpr) condition;
+					
+					Abstract1 in = ((NumericalStateWrapper) inWrapper).get();
+					Abstract1 o = new Abstract1(man, in);
+					NumericalStateWrapper ow = new NumericalStateWrapper(man,in);
+					NumericalStateWrapper ow_branchout = new NumericalStateWrapper(man,in);
+					Abstract1 o_branchout = new Abstract1(man, in);
+					handleIf(eqExpr, in, ow, ow_branchout);
+					o = ow.get();
+					o_branchout = ow_branchout.get();
+				}
 
 			} else if (s instanceof JInvokeStmt && ((JInvokeStmt) s).getInvokeExpr() instanceof JVirtualInvokeExpr) {
 				// handle invocations
