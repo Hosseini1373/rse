@@ -1,6 +1,7 @@
 package ch.ethz.rse.pointer;
 
 import java.util.Collection;
+
 import java.util.LinkedList;
 
 import soot.Local;

@@ -221,10 +221,6 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 		// - rightNode - leftNode (cmp_kind) 0, e.g., rmlExpr == 0
 		Tcons1 branchCons = null, fallCons = null;
 
-		// TODO: Handle required conditional expressions
-		// @andrinadenzler 2016-05-29 20:16 implemented except for imprecision
-		// in cases like (n != 0): (n != 0) is treated as (n in [-oo,+oo])
-		//  and provides no constraint on n at all
 		if (eqExpr instanceof JEqExpr) {
 			branchCons = new Tcons1(env, Tcons1.EQ, lmrExpr);
 			fallCons = new Tcons1(env, Tcons1.DISEQ, lmrExpr);

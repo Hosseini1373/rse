@@ -29,6 +29,10 @@ public class PointsToAnalysisWrapperTest {
 		PointsToAnalysisWrapper w = new PointsToAnalysisWrapper(sc);
 
 		// check that pointer indeed points to an abstract object
+		//in the Basic_test_safe we have a method called m1. We retriev the body of this method and get 
+		//the first localvaribale of it and see which collect nodes are pointed to by this local variable in 
+		//the pointer assignment graph and assert if the size of the collection is 1 or in otherwords the local
+        //variable points to just one object
 		Body b = sc.getMethodByName("m1").retrieveActiveBody();
 		Local s = Iterators.get(b.getLocals().iterator(), 1);
 		Collection<Node> pointsTo = w.getNodes(s);
