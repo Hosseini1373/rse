@@ -313,7 +313,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 	}
 
 	// extracts the (arithmetic) operation of a Soot binary expression
-	public int getOp(BinopExpr bin) {
+	public static int getOp(BinopExpr bin) {
 		if (bin instanceof JAddExpr) return Texpr1BinNode.OP_ADD;
 		if (bin instanceof JSubExpr) return Texpr1BinNode.OP_SUB;
 		if (bin instanceof JMulExpr) return Texpr1BinNode.OP_MUL;
@@ -323,7 +323,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 	}
 
 	// converts a Soot expression (Value) to an Apron expression (Texpr1Node)
-	public Texpr1Node toExpr(Value value) {
+	public static Texpr1Node toExpr(Value value) {
 		if (value instanceof BinopExpr) {
 			BinopExpr bin = (BinopExpr) value;
 			int op = getOp(bin);
