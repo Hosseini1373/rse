@@ -25,6 +25,7 @@ import soot.jimple.IntConstant;
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.internal.JSpecialInvokeExpr;
 import soot.jimple.spark.pag.Node;
+import soot.jimple.spark.sets.PointsToSetInternal;
 
 public class PointsToInitializer {
 
@@ -57,8 +58,13 @@ public class PointsToInitializer {
 		logger.debug("Analyzing initializers in " + c.getName());
 		this.analyzeAllInitializers();
 	}
-   
+	
+	
+	
+	// removed this to make Track-non-negative work
+
 	private void analyzeAllInitializers() {
+	    /**
 		//a unique Integer Id for every TrainStation Object. see Incrementation below
 		int Id=0;
 		for (SootMethod method : this.c.getMethods()) {
@@ -69,8 +75,9 @@ public class PointsToInitializer {
 			}
 
 			// populate data structures
-			// mapping from internal object abstraction of soot which is based on Node
-			//to our own object abstraction which is Trainstationinitializer.
+			// a two way map from internal object abstraction of soot which is based on Node
+			//to our own object abstraction which is Trainstationinitializer(for every Node object
+			//we have exactly one Trainstationinitializer object)
 			
 		    //TrainStationInitializer class assigns a unique integer to every trainstation object 
 		    //and saves the invoked constructor expression that initialized the trainstation object.
@@ -95,14 +102,23 @@ public class PointsToInitializer {
 					Value argValue = invokeExpr.getArg(0);
 
 					if (argValue instanceof IntConstant) {
-						//we increment Id everytime we see an object allocation in any method 
-						Id++;
+
+						
 						int argInt = ((IntConstant) argValue).value;
 						for(Node node:pts) {
-							TrainStationInitializer tsObject=new TrainStationInitializer(invokeStmt,Id,argInt);
-							initializers.put(node, tsObject);
+							TrainStationInitializer tsObject;
+							if(!(initializers.containsKey(node))) {
+								tsObject=new TrainStationInitializer(invokeStmt,Id,argInt);
+								initializers.put(node, tsObject);
+								//we increment Id everytime we see a new Node
+								Id++;
+							}
+							
 							//add this tsObject to the objects that belong to this method
-							perMethod.put(method, tsObject);
+							//if it is not already part of the method
+							if(!(perMethod.get(method).contains(initializers.get(node)))) {
+								perMethod.put(method, initializers.get(node));
+							}
 						}
 						
 					} else {
@@ -113,16 +129,27 @@ public class PointsToInitializer {
 				}			
 			}	
 		}
+		*/
 	}
+
+	
+	
 	
 	public SootClass get_class() {
 		return this.c;
 	}
+	
+	
+	
 	//added getters 
 	public Map<Node, TrainStationInitializer>  get_initializers() {
 		return this.initializers;
 	}
 	public Multimap<SootMethod, TrainStationInitializer> get_perMethod(){
-		return this.perMethod;}
-
+		return this.perMethod;
+		}
+	
+	public Collection<Node> reachingObjects(Local base) {
+		return pointsTo.getNodes(base);
+	}
 }

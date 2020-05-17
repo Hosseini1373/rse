@@ -183,4 +183,46 @@ public class NumericalStateWrapper {
 			throw new RuntimeException(e);
 		}
 	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	public final Interval getInterval(Value val) {
+		Interval top = new Interval();
+		top.setTop();
+		if (!(val instanceof IntConstant)) { //What if it's a field int ... thus this still count as a IntConstant?
+			return top;
+		}
+		if (val instanceof IntConstant) {
+			int value = ((IntConstant) val).value;
+			return new Interval(value, value);
+		}
+		if (val instanceof Local) {
+			String var = ((Local) val).getName();
+			Interval interval = null;
+			try {
+				interval = this.get().getBound(man, var);
+			} catch (ApronException e) {
+				e.printStackTrace();
+			}
+			return interval;
+		}
+		if (val instanceof InvokeExpr) {
+			return top;
+		}
+		return top;
+	}
+	
+
+	
+	
+	
+	
 }

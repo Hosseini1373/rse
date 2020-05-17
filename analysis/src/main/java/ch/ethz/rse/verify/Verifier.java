@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import apron.ApronException;
 import apron.Environment;
+import apron.Interval;//added import
 import apron.MpqScalar;
 import apron.Tcons1;
 import apron.Texpr1BinNode;
@@ -69,21 +70,100 @@ public class Verifier extends AVerifier {
 	//the method to the corresponding analysis
 	
 	private void runNumericalAnalysis() {
+		
 		for (SootMethod method : c.getMethods()) {
 
 			NumericalAnalysis analysis = new NumericalAnalysis(method,new BriefUnitGraph(
 					            method.retrieveActiveBody()), pointsTo);
 			numericalAnalysis.put(method, analysis);
 		}
+		
 	}
 
+	
+	
+
+	
 	
 	
 	
 	
 	@Override
 	public boolean checkTrackNonNegative() {
+		// FILL THIS OUT
+		for (SootMethod method : c.getMethods()) {
 
+			NumericalAnalysis analysis = this.numericalAnalysis.get(method);
+			for (Unit u : method.retrieveActiveBody().getUnits()) {
+				NumericalStateWrapper state = analysis.getFlowBefore(u);//loopHeadState.get(u);
+				
+				try {
+					if (state.get().isBottom(analysis.man)) {
+						// unreachable code
+						continue;
+					}
+				} catch (ApronException e) {
+					e.printStackTrace();
+				}
+				
+				if (u instanceof JInvokeStmt
+						&& ((JInvokeStmt) u).getInvokeExpr() instanceof JVirtualInvokeExpr) {
+
+					JInvokeStmt invokeStmt = (JInvokeStmt) u;
+
+					JVirtualInvokeExpr invokeExpr = (JVirtualInvokeExpr) invokeStmt
+							.getInvokeExpr();
+
+					Local base = (Local) invokeExpr.getBase();
+					/*
+					if (pointsTo.reachingObjects(base) instanceof EmptyPointsToSet) {
+						return false;
+					}
+					*/
+					if (invokeExpr.getMethod().getName()
+							.equals("arrive")) { //instead of analysis.functionName
+
+
+						Value argValue = invokeExpr.getArg(0);
+						Interval argInterval = state.getInterval(argValue);
+
+						//debug("VirtualInvokeExpr with argument: " + argInterval);
+						
+						// According to project descriptions only values between -10k and 10k are used
+						// So need to check if the argument is a subset of [-10000,-1] to check for non-negativity
+						Interval checkInterval = new Interval(-10000,-1);
+						
+						// I'm assuming this is the correct method to call
+						// Again the documentation is not really helpful
+						if(argInterval.isLeq(checkInterval)) {
+							return false;
+						}
+					}
+				}
+				
+			}
+		}
+		// no calls to method arrive violated non-negativity
+	return true;
+
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+
+	
+//check the CheckTrackNonNegative first and then run this		
+	@Override
+	public boolean checkTrackInRange() {
+		/**
 		//go through the hashmap and add t
 		for (Map.Entry<SootMethod, NumericalAnalysis> entry : numericalAnalysis.entrySet()) {
 		    SootMethod method = entry.getKey();
@@ -123,61 +203,51 @@ public class Verifier extends AVerifier {
 
 					JVirtualInvokeExpr invokeExpr = (JVirtualInvokeExpr) invokeStmt
 							.getInvokeExpr();
+					
 
 					Local base = (Local) invokeExpr.getBase();
-					if (pointsTo.reachingObjects(base) instanceof EmptyPointsToSet) {
+					//check whether the base object is a initialized
+					Collection<Node> nodes=pointsTo.reachingObjects(base);
+					
+					if (nodes.isEmpty()) {
 						return false;
 					}
-					DoublePointsToSet pts = (DoublePointsToSet) pointsTo
-							.reachingObjects(base);
-					debug("Points-to set: " + pts);
-
+					
+					//check whether the function is arrive()
 					if (invokeExpr.getMethod().getName()
-							.equals(Analysis.functionName)) {
-
-						// TODO: Check whether the 'sendJob' method's argument is
-						// within bounds
-						// @andrinadenzler 2016-06-03 implemented
-
+							.equals("arrive")) {
+						
 						Value argValue = invokeExpr.getArg(0);
-						Interval argInterval = Analysis
+						//this is a bit different from michael's code because 
+						//I added the getInterval method in the NumericalAnalysis class
+						Interval argInterval = fixPoint
 								.getInterval(state, argValue);
 
-						debug("VirtualInvokeExpr with argument: " + argInterval);
-
-						// Visit all allocation sites that the base pointer may
-						// reference
-						MyP2SetVisitor visitor = new MyP2SetVisitor(
-								allocationSites, argInterval);
-						pts.forall(visitor);
-
-						if (!visitor.getReturnValue()) {
-							return false;
+						logger.info("VirtualInvokeExpr with argument: " + argInterval);
+						//for every TrainStationInitializer object (which corresponds to one node)
+						//that the base variable points to, check whether its ntracks field is in ranger
+						for(Node node:nodes) {
+							TrainStationInitializer tsObject=pointsTo.get_initializers().get(node);
+							int ntracks=tsObject.nTracks;
+							if (!(argInterval.isLeq(new Interval(0, ntracks-1)))) 
+								return false;
 						}
+						
 					}
 				}
-			}
-
-			// Return false if the method may have index out of bound errors
-
-		    
-		    
-		    
-		    
-		    
-		    
-		    
-		    
-		    
-		    
+			}		    
 		}
-		return true;
+		
+		//if none of the methods contain an arrive with out of bound argument
+		//then return true
+		 
+		 */
+		return true;	
+		
 	}
+	
 
-	@Override
-	public boolean checkTrackInRange() {
-		return true;
-	}
+	
 
 	@Override
 	public boolean checkNoCrash() {
