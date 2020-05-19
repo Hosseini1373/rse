@@ -64,7 +64,7 @@ public class PointsToInitializer {
 	// removed this to make Track-non-negative work
 
 	private void analyzeAllInitializers() {
-	    /**
+	   
 		//a unique Integer Id for every TrainStation Object. see Incrementation below
 		int Id=0;
 		for (SootMethod method : this.c.getMethods()) {
@@ -129,7 +129,7 @@ public class PointsToInitializer {
 				}			
 			}	
 		}
-		*/
+		
 	}
 
 	

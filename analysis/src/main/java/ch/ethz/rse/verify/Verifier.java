@@ -137,14 +137,10 @@ public class Verifier extends AVerifier {
 
 						Value argValue = invokeExpr.getArg(0);
 						Interval argInterval = state.getInterval(argValue);
-						logger.debug("argument to the arrive function "+argInterval.toString());
-						//debug("VirtualInvokeExpr with argument: " + argInterval);
-						
-						// According to project descriptions only values between -10k and 10k are used
-						// So need to check if the argument is a subset of [-10000,-1] to check for non-negativity
+						logger.debug("argument to the arrive function "+argInterval.toString());			
 						logger.debug("the checkInterval that we compare with argument to Interval "+argInterval.inf().cmp(0));
-						// I'm assuming this is the correct method to call
-						// Again the documentation is not really helpful
+						
+						//-1 means that the infimum of the argInterval is strictly less than 0
 						if(argInterval.inf().cmp(0)==-1) {
 							return false;
 						}
@@ -173,7 +169,7 @@ public class Verifier extends AVerifier {
 //check the CheckTrackNonNegative first and then run this		
 	@Override
 	public boolean checkTrackInRange() {
-		/**
+
 		//go through the hashmap and add t
 		for (Map.Entry<SootMethod, NumericalAnalysis> entry : numericalAnalysis.entrySet()) {
 		    SootMethod method = entry.getKey();
@@ -230,16 +226,17 @@ public class Verifier extends AVerifier {
 						Value argValue = invokeExpr.getArg(0);
 						//this is a bit different from michael's code because 
 						//I added the getInterval method in the NumericalAnalysis class
-						Interval argInterval = fixPoint
-								.getInterval(state, argValue);
+						Interval argInterval = state.getInterval(argValue);
 
-						logger.info("VirtualInvokeExpr with argument: " + argInterval);
+						logger.debug("VirtualInvokeExpr with argument: " + argInterval);
 						//for every TrainStationInitializer object (which corresponds to one node)
 						//that the base variable points to, check whether its ntracks field is in ranger
 						for(Node node:nodes) {
 							TrainStationInitializer tsObject=pointsTo.get_initializers().get(node);
 							int ntracks=tsObject.nTracks;
-							if (!(argInterval.isLeq(new Interval(0, ntracks-1)))) 
+							logger.debug("VirtualInvokeExpr with argument: " + ntracks);
+							//compare whether argInterval bounds are strictly less than 0 or strictly bigger than ntracks-1
+							if (argInterval.inf().cmp(0)==-1 || argInterval.sup().cmp(ntracks-1)==1) 
 								return false;
 						}
 						
@@ -249,10 +246,9 @@ public class Verifier extends AVerifier {
 		}
 		
 		//if none of the methods contain an arrive with out of bound argument
-		//then return true
+		return true;
 		 
-		 */
-		return true;	
+
 		
 	}
 	
