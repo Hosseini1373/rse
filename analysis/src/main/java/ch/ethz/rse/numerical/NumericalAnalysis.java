@@ -493,9 +493,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 	public final Interval getInterval(NumericalStateWrapper state, Value val) {
 		Interval top = new Interval();
 		top.setTop();
-		if (!isIntValue(val)) {
-			return top;
-		}
+
 		if (val instanceof IntConstant) {
 			int value = ((IntConstant) val).value;
 			return new Interval(value, value);

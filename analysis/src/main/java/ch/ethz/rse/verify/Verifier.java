@@ -255,10 +255,104 @@ public class Verifier extends AVerifier {
 
 	
 
-	@Override
-	public boolean checkNoCrash() {
-		return true;
-	}
+	
+	
+	
+	
+	
+	 public boolean checkNoCrash() {
+ 		//go through the hashmap and add t
+ 		for (Map.Entry<SootMethod, NumericalAnalysis> entry : numericalAnalysis.entrySet()) {
+ 		    SootMethod method = entry.getKey();
+ 		    NumericalAnalysis fixPoint = entry.getValue();
+ 		    
+ 		    
+ 			for (Unit u : method.retrieveActiveBody().getUnits()) {
+ 				//the state in line  before the execution of statement u
+ 				NumericalStateWrapper state = fixPoint.getFlowBefore(u);
+ 				//see whether a line of code or in other words u is executed at all 
+ 				//so one toDo is that we handle invoke in NumericalAnalysis and make sure that
+ 				//if an invoke stm is reached we set the state corresponding to the stm to Top
+ 				//so that it doesn't stay bottom and we know after, that invoke stm could be 
+ 				//reached and was not in a branch of if or while or ... that could never be reached
+ 				//according to our numerical analysis
+ 				try {
+ 					if (state.get().isBottom(fixPoint.man)) {
+ 						// unreachable code
+ 						continue;
+ 					}
+ 				} catch (ApronException e) {
+ 					e.printStackTrace();
+ 				}
+ 				
+ 				
+ 				//we handle  JSpecialInvokeExpr in PointstoInitalization, basically the constructors of the trainstation objects
+ 				if (u instanceof JInvokeStmt
+ 						&& ((JInvokeStmt) u).getInvokeExpr() instanceof JSpecialInvokeExpr) {
+ 				}
+ 				
+ 				
+ 				//call to arrive function
+ 				if (u instanceof JInvokeStmt
+ 						&& ((JInvokeStmt) u).getInvokeExpr() instanceof JVirtualInvokeExpr) {
+ 
+ 					JInvokeStmt invokeStmt = (JInvokeStmt) u;
+ 
+ 					JVirtualInvokeExpr invokeExpr = (JVirtualInvokeExpr) invokeStmt
+ 							.getInvokeExpr();
+ 					
+ 
+ 					Local base = (Local) invokeExpr.getBase();
+ 					//check whether the base object is initialized
+ 					Collection<Node> nodes=pointsTo.reachingObjects(base);
+ 					
+ 					if (nodes.isEmpty()) {
+ 						return false;
+ 					}
+ 					
+ 					//check whether the function is arrive()
+ 					if (invokeExpr.getMethod().getName()
+ 							.equals("arrive")) {
+ 						
+ 						Value argValue = invokeExpr.getArg(0);
+ 						//this is a bit different from michael's code because 
+ 						//I added the getInterval method in the NumericalAnalysis class
+ 						Interval argInterval = state
+ 								.getInterval(argValue);
+ 
+ 						logger.debug("VirtualInvokeExpr with argument in checkNoCrash: " + argInterval);
+ 						//for every TrainStationInitializer object (which corresponds to one node)
+ 						//that the base variable points to, check whether its the passed argInterval is in the range
+ 						// of a occupied track of the TrainStation
+ 						for(Node node:nodes) {
+ 							TrainStationInitializer tsObject=pointsTo.get_initializers().get(node);
+ 							int ntracks=tsObject.nTracks;
+ 							for(int i=0;i<ntracks;i++) {
+ 								if(tsObject.occupied[i] && (argInterval.inf().cmp(i) == 1 || argInterval.sup().cmp(i)== 1)) {
+ 									// Track is occupied and we crash
+ 									return false;
+ 								}
+ 								else {
+ 									// Track is not occupied but now we occupy it
+ 									// This makes the analysis very imprecise but still sound
+ 									// Probably a lot of cases where we are going to return false
+ 									// even though they are fine
+ 									if(argInterval.inf().cmp(i) == 1 || argInterval.sup().cmp(i)== 1){
+										    tsObject.occupied[i] = true;
+									    }
+ 								}
+ 							}
+ 						}
+ 						
+ 					}
+ 				}
+ 			}		    
+ 		}
+ 		// No call to arrive() was to a already occupied track
+ 		return true;
+ 	}
+
 
 
 }
+

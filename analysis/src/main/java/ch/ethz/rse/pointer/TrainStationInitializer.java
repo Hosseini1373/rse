@@ -23,6 +23,8 @@ public class TrainStationInitializer {
 	 * argument in the constructor
 	 */
 	public final int nTracks;
+	
+	public final Boolean[] occupied;
 
 	/**
 	 * 
@@ -34,6 +36,12 @@ public class TrainStationInitializer {
 		this.statement = statement;
 		this.uniqueNumber = uniqueNumber;
 		this.nTracks = nTracks;
+		this.occupied = new Boolean[nTracks];
+		// all entries are initially false:
+		for (int i = 0; i < nTracks; i++) {
+			this.occupied[i] = false;
+		}
+
 	}
 
 	/**
