@@ -152,103 +152,36 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 	
 	
 	
-	private void handleDef(NumericalStateWrapper fallOutWrapper, Value left, Value right)
+	private void handleDef(DefinitionStmt def,NumericalStateWrapper fallOutWrapper,NumericalStateWrapper branchOutWrapper)
 			throws ApronException {
-	Abstract1 o=fallOutWrapper.get();
-	Texpr1Node lAr = null;
-	Texpr1Node rAr = null;
-	Texpr1Intern xp = null;
 
-	if (left instanceof JimpleLocal) {
-		String varName = ((JimpleLocal) left).getName();
+		
+		
+		final boolean verbose = false;
 
-		if (right instanceof IntConstant) {
-			IntConstant constant = (IntConstant) right;
-			rAr = new Texpr1CstNode(new MpqScalar(constant.value));
-			xp = new Texpr1Intern(env, rAr);
-			o.assign(man, varName, xp, null);
-		} else if (right instanceof JimpleLocal) {
-			JimpleLocal local = (JimpleLocal) right;
-			if (isIntValue(local)) {
-				rAr = new Texpr1VarNode(local.getName());
-				xp = new Texpr1Intern(env, rAr);
-				o.assign(man, varName, xp, null);
-			} else {
-				unhandled("JimpleLocal of non-integer type in numerical analysis."
-						, local.getType() ,true);
-			}
-		} else if (right instanceof AbstractBinopExpr) {
-			AbstractBinopExpr binopExpr = (AbstractBinopExpr) right;
+		// split into operands
+		Value lhs = def.getLeftOp(), rhs = def.getRightOp();
+		if (verbose) logger.info("Definition of", lhs, "(" + lhs.getClass() + ")", "as", rhs, "(" + rhs.getClass() + ")");
 
-			Value leftOp = binopExpr.getOp1();
-			Value rightOp = binopExpr.getOp2();
+		// parse expressions on either side
+		String var = ((JimpleLocal) lhs).getName(); // local variable to assign to
+		Texpr1Node expr = toExpr(rhs);
+		if (verbose) logger.info("expr:", expr);
 
-			Texpr1Node leftNode = null;
-
-			if (leftOp instanceof IntConstant) {
-				leftNode = new Texpr1CstNode(new MpqScalar(
-						((IntConstant) leftOp).value));
-			} else if (leftOp instanceof JimpleLocal) {
-				leftNode = new Texpr1VarNode(
-						((JimpleLocal) leftOp).getName());
-			} else {
-				unhandled("unexpected leftOp in binopExpr: ",
-						 leftOp.getClass(),true);
-			}
-
-			Texpr1Node rightNode = null;
-
-			if (rightOp instanceof IntConstant) {
-				rightNode = new Texpr1CstNode(new MpqScalar(
-						((IntConstant) rightOp).value));
-			} else if (rightOp instanceof JimpleLocal) {
-				rightNode = new Texpr1VarNode(
-						((JimpleLocal) rightOp).getName());
-			} else {
-				unhandled("unexpected rightOp in binopExpr: ",
-						 rightOp.getClass(),true);
-			}
-
-			if (binopExpr instanceof JMulExpr) {
-				rAr = new Texpr1BinNode(Texpr1BinNode.OP_MUL, leftNode,
-						rightNode);
-			} else if (binopExpr instanceof JSubExpr) {
-				rAr = new Texpr1BinNode(Texpr1BinNode.OP_SUB, leftNode,
-						rightNode);
-			} else if (binopExpr instanceof JAddExpr) {
-				rAr = new Texpr1BinNode(Texpr1BinNode.OP_ADD, leftNode,
-						rightNode);
-			} else if (binopExpr instanceof JDivExpr) {
-				rAr = new Texpr1BinNode(Texpr1BinNode.OP_DIV, leftNode,
-						rightNode);
-			}
-			
-			NumericalStateWrapper state = new NumericalStateWrapper(man,o);
-			logger.debug("Bin_Op1: " + getInterval(state, leftOp));
-			logger.debug("Bin_Op2: " + getInterval(state, rightOp));
-
-			xp = new Texpr1Intern(env, rAr);
-			if (binopExpr instanceof JDivExpr
-					&& rightOp instanceof IntConstant
-					&& ((IntConstant) rightOp).value == 0) {
-				o = new Abstract1(man, env, true);
-			} else {
-				o.assign(man, varName, xp, null);
-			}
-
-			logger.debug("Bin_Res: " + binopExpr.getClass() + ": "
-					+ getInterval(state, left));
-		}
-		// TODO: Handle other kinds of assignments (e.g. x = y * z)
-		// implemented except for some
-		// potential corner cases
-		else {
-
-		}
-	 }
-	//back to NumericalStateWrapper
-	fallOutWrapper.set(o);
+		if (expr != null) {
+			logger.info(expr.toString());
+			Texpr1Intern val = new Texpr1Intern(env, expr); // value to assign
+			// apply to state
+			fallOutWrapper.assign(var, val);
+			branchOutWrapper.assign(var, val);
+		} // we can ignore anything not parsed by toExpr
+		
 	}
+	
+	
+	
+	
+	
 	
 	
 	
@@ -439,12 +372,14 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 
 		/**For most statements, only fallOut is relevant, you can ignore branchOut for them.
 		
-		As you say, both fallOut and branchOut are relevant for ifs and loops. Both ifs and loops get transformed to conditional jumps in Jimple, so it suffices to think in terms of conditional jumps.
+		 both fallOut and branchOut are relevant for ifs and loops. Both ifs and loops get transformed to conditional jumps in Jimple, so it suffices to think in terms of conditional jumps.
 		
 		For `if cond goto A`, `fallOut` contains the state after "falling out" of the statement, i.e., if the condition is false. `branchOut` contains the state after "branching out" of the statement, i.e., if the condition is true.
 		
 		With this definition, it does not matter which transformation Jimple uses, both will be handled correctly. */
 				
+
+		// wrapper for state after running op, assuming we move to the next statement
 		assert fallOutWrappers.size() <= 1;
 		NumericalStateWrapper fallOutWrapper = null;
 		if (fallOutWrappers.size() == 1) {
@@ -453,13 +388,15 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 		}
 
 		// wrapper for state after running op, assuming we follow a jump
-		//branchOutWrapper branch is the state when we enter an if branch(condition holds)
 		assert branchOutWrappers.size() <= 1;
 		NumericalStateWrapper branchOutWrapper = null;
 		if (branchOutWrappers.size() == 1) {
 			branchOutWrapper = branchOutWrappers.get(0);
 			inWrapper.copyInto(branchOutWrapper);
 		}
+
+		
+		
 
 		try {
 			if (s instanceof DefinitionStmt) {
@@ -487,7 +424,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 					// no action necessary
 				} else {
 					// handle assignment
-					handleDef(fallOutWrapper, left, right);
+					handleDef((DefinitionStmt) s, fallOutWrapper, branchOutWrapper);
 				}
 
 			} else if (s instanceof JIfStmt) {
@@ -501,7 +438,13 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 				JInvokeStmt jInvStmt = (JInvokeStmt) s;
 				handleInvoke(jInvStmt, fallOutWrapper);
 			}
-
+			
+			for (NumericalStateWrapper out : fallOutWrappers)
+				out.set(fallOutWrapper.get());
+			for (NumericalStateWrapper out : branchOutWrappers)
+				out.set(branchOutWrapper.get());
+			
+			
 			// log outcome
 			if (fallOutWrapper != null) {
 				logger.debug(inWrapper.get() + " " + s + " =>[fallout] " + fallOutWrapper);

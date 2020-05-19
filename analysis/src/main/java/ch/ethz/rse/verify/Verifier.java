@@ -31,6 +31,7 @@ import soot.SootHelper;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
+import soot.jimple.IntConstant;//added Import
 import soot.jimple.internal.JInvokeStmt;
 import soot.jimple.internal.JSpecialInvokeExpr;
 import soot.jimple.internal.JVirtualInvokeExpr;
@@ -85,6 +86,16 @@ public class Verifier extends AVerifier {
 
 	
 	
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	
@@ -126,16 +137,15 @@ public class Verifier extends AVerifier {
 
 						Value argValue = invokeExpr.getArg(0);
 						Interval argInterval = state.getInterval(argValue);
-
+						logger.debug("argument to the arrive function "+argInterval.toString());
 						//debug("VirtualInvokeExpr with argument: " + argInterval);
 						
 						// According to project descriptions only values between -10k and 10k are used
 						// So need to check if the argument is a subset of [-10000,-1] to check for non-negativity
-						Interval checkInterval = new Interval(-10000,-1);
-						
+						logger.debug("the checkInterval that we compare with argument to Interval "+argInterval.inf().cmp(0));
 						// I'm assuming this is the correct method to call
 						// Again the documentation is not really helpful
-						if(argInterval.isLeq(checkInterval)) {
+						if(argInterval.inf().cmp(0)==-1) {
 							return false;
 						}
 					}

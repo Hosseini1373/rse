@@ -197,9 +197,6 @@ public class NumericalStateWrapper {
 	public final Interval getInterval(Value val) {
 		Interval top = new Interval();
 		top.setTop();
-		if (!(val instanceof IntConstant)) { //What if it's a field int ... thus this still count as a IntConstant?
-			return top;
-		}
 		if (val instanceof IntConstant) {
 			int value = ((IntConstant) val).value;
 			return new Interval(value, value);
