@@ -173,7 +173,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 			Texpr1Intern val = new Texpr1Intern(env, expr); // value to assign
 			// apply to state
 			fallOutWrapper.assign(var, val);
-			branchOutWrapper.assign(var, val);
+			//branchOutWrapper.assign(var, val);
 		} // we can ignore anything not parsed by toExpr
 		
 	}
@@ -341,7 +341,7 @@ public class NumericalAnalysis extends ForwardBranchedFlowAnalysis<NumericalStat
 				if (count.value < WIDENING_THRESHOLD) {
 					a3 = a1.joinCopy(man, a2);
 				} else {
-					//Logger.log("widening", a1, "with", a2);
+					logger.debug("widening"+"   "+ a1+ "with"+"   "+ a2);
 					if (a2.isBottom(man))
 						a3 = a2;
 					else

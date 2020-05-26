@@ -236,7 +236,7 @@ public class Verifier extends AVerifier {
 							int ntracks=tsObject.nTracks;
 							logger.debug("VirtualInvokeExpr with argument: " + ntracks);
 							//compare whether argInterval bounds are strictly less than 0 or strictly bigger than ntracks-1
-							if (argInterval.inf().cmp(0)==-1 || argInterval.sup().cmp(ntracks-1)==1) 
+							if ( argInterval.sup().cmp(ntracks-1)==1) 
 								return false;
 						}
 						
